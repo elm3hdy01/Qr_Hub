@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>QR Hub Dashboard</title>
+
+<!-- CDNs -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha256/0.9.0/sha256.min.js"></script>
+
+<style>
+  :root{
+    --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --sub:#94a3b8; --ring:#243145;
+    --brand:#22d3ee; --accent:#f59e0b; --ok:#22c55e; --bad:#ef4444;
+  }
+  [data-theme="light"]{
+    --bg:#f4f6fb; --card:#ffffff; --text:#0b1220; --sub:#475569; --ring:#e5e7eb;
+    --brand:#0ea5e9; --accent:#b45309; --ok:#16a34a; --bad:#dc2626;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:"Cairo", system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+    background:var(--bg); color:var(--text); transition: background 0.3s, color 0.3s;
+  }
+  header{
+    position:sticky; top:0; z-index:10; backdrop-filter:saturate(1.2) blur(12px);
+    background:linear-gradient(180deg, rgba(0,0,0,.25), transparent);
+    border-bottom:1px solid var(--ring);
+  }
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px;
+  }
+  .brand{display:flex; align-items:center; gap:10px}
+  .mark {
+    width: 36px; height: 36px; border-radius: 10px; 
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .mark::before {
+    content: ""; position: absolute; width: 60%; height: 60%;
+    background: white; border-radius: 4px; 
+    box-shadow: 0 0 0 3px #6a11cb, 0 0 0 5px #2575fc;
+  }
+  .mark::after {
+    content: ""; position: absolute; width: 15%; height: 15%;
+    background: #2575fc; border-radius: 50%; bottom: 5px; right: 5px;
+  }
+  .brand b{font-size:18px}
+  .user{opacity:.9}
+  nav.tabs{
+    display:flex; gap:6px; overflow:auto; padding:8px 12px; border-top:1px solid var(--ring);
+  }
+  nav.tabs button{
+    flex:0 0 auto; padding:10px 12px; border:1px solid var(--ring); background:var(--card);
+    color:var(--text); border-radius:12px; cursor:pointer; font-weight:700; transition: all 0.2s;
+  }
+  nav.tabs button.active{outline:2px solid var(--brand); box-shadow:0 0 0 3px rgba(34,211,238,.15)}
+  nav.tabs button:hover{transform: translateY(-2px);}
+  .wrap{max-width:1100px; margin-inline:auto; padding:16px}
+  .page{display:none; animation:fade .3s ease}
+  .page.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .card{
+    background:var(--card); border:1px solid var(--ring); border-radius:16px; padding:16px;
+    box-shadow:0 10px 30px rgba(0,0,0,.2); margin-bottom:14px; transition: transform 0.2s;
+  }
+  .card:hover {transform: translateY(-3px);}
+  .row{display:grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap:12px}
+  @media (max-width:900px){ .row{grid-template-columns:1fr} }
+  label.small{font-size:12px; color:var(--sub); margin:6px 2px; display:block}
+  input[type="text"], input[type="url"], input[type="password"], input[type="number"], input[type="color"], textarea, select{
+    width:100%; padding:12px; border-radius:12px; border:1px solid var(--ring); background:transparent; color:var(--text);
+    outline:none; transition: border 0.2s;
+  }
+  input:focus, textarea:focus, select:focus {border-color: var(--brand);}
+  textarea{min-height:80px; resize:vertical}
+  .btn{appearance:none; border:0; padding:10px 14px; border-radius:12px; font-weight:800; cursor:pointer; transition: all 0.2s;}
+  .btn:hover {transform: translateY(-2px); opacity: 0.9;}
+  .btn.primary{background:var(--brand); color:#081018}
+  .btn.ghost{background:transparent; color:var(--text); border:1px solid var(--ring)}
+  .btn.bad{background:var(--bad); color:#fff}
+  .btn.ok{background:var(--ok); color:#fff}
+  .stack{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+  .hint{font-size:12px; color:var(--sub)}
+  .center{display:flex; align-items:center; justify-content:center}
+  .qrbox{position:relative; display:inline-block; padding:12px; background:#fff; border-radius:16px; margin: 10px 0;}
+  .qrbox .logoOverlay{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); border-radius:50%; border:3px solid #fff; width:22%; aspect-ratio:1; object-fit:cover}
+  .grid{display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px}
+  @media (max-width:800px){ .grid{grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (max-width:520px){ .grid{grid-template-columns: 1fr; } }
+  .thumb{background:#fff; border-radius:12px; padding:8px; border:1px solid var(--ring); transition: transform 0.2s;}
+  .thumb:hover {transform: scale(1.02);}
+  .thumb img{width:100%; height:auto; display:block; border-radius:8px}
+  .flex{display:flex; gap:10px; align-items:center; justify-content:space-between}
+  .pill{padding:6px 10px; border-radius:999px; background:rgba(255,255,255,.08); border:1px solid var(--ring); font-size:12px}
+  .alert{padding:10px 12px; border-radius:12px; border:1px solid var(--ring); background:rgba(255,255,255,.04)}
+  .login-wrap{max-width:420px; margin:40px auto}
+  .footer{opacity:.7; text-align:center; font-size:12px; padding:20px}
+  
+  /* New styles */
+  .loading {display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite;}
+  @keyframes spin {to {transform: rotate(360deg);}}
+  .toast {
+    position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; background: var(--card); color: var(--text);
+    border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; display: flex; align-items: center;
+    gap: 10px; transform: translateY(100px); opacity: 0; transition: all 0.3s;
+  }
+  .toast.show {transform: translateY(0); opacity: 1;}
+  .toast.success {border-left: 4px solid var(--ok);}
+  .toast.error {border-left: 4px solid var(--bad);}
+  .toast.info {border-left: 4px solid var(--brand);}
+  .modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .modal.show {opacity: 1; pointer-events: all;}
+  .modal-content {
+    background: var(--card); padding: 20px; border-radius: 12px; max-width: 400px; width: 90%;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  }
+  .modal-actions {display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;}
+  .social-share {display: flex; gap: 10px; margin-top: 15px;}
+  .social-btn {
+    display: flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+    border-radius: 50%; background: var(--bg); color: var(--text); border: 1px solid var(--ring);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .social-btn:hover {transform: translateY(-3px); background: var(--brand); color: #000;}
+  .input-error {border-color: var(--bad) !important;}
+  .error-text {color: var(--bad); font-size: 12px; margin-top: 5px;}
+  .tab-content {display: none;}
+  .tab-content.active {display: block; animation: fade 0.3s;}
+  .qr-type-selector {display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;}
+  .qr-type-btn {
+    padding: 8px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--ring);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .qr-type-btn.active {background: var(--brand); color: #000; border-color: var(--brand);}
+  .wifi-fields, .contact-fields {display: none;}
+  .form-group {margin-bottom: 15px;}
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;
+  }
+  .stat-card {
+    background: var(--card); padding: 20px; border-radius: 12px; text-align: center; border: 1px solid var(--ring);
+  }
+  .stat-number {
+    font-size: 2rem; font-weight: bold; color: var(--brand); margin: 10px 0;
+  }
+  .stat-label {
+    font-size: 0.9rem; color: var(--sub);
+  }
+  .main-layout {
+    display: grid; grid-template-columns: 1fr 350px; gap: 20px;
+  }
+  @media (max-width: 900px) {
+    .main-layout {grid-template-columns: 1fr;}
+  }
+  .section-title {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--ring);
+  }
+  .section-title i {color: var(--brand);}
+  .quick-actions {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0;
+  }
+  .lib-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px;
+    background: var(--card); margin-bottom: 10px; border: 1px solid var(--ring);
+  }
+  .lib-item img {width: 50px; height: 50px; border-radius: 8px;}
+  .lib-info {flex: 1;}
+  .lib-actions {display: flex; gap: 5px;}
+  .empty-state {
+    text-align: center; padding: 30px; color: var(--sub);
+  }
+  .empty-state i {font-size: 3rem; margin-bottom: 15px; opacity: 0.5;}
+  .contact-list {
+    list-style: none; padding: 0; margin: 20px 0;
+  }
+  .contact-list li {
+    display: flex; align-items: center; gap: 15px; padding: 12px; 
+    border-radius: 10px; background: var(--card); margin-bottom: 10px;
+    border: 1px solid var(--ring);
+  }
+  .contact-list li i {
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); border-radius: 50%; font-size: 18px;
+  }
+  .contact-list a {
+    color: var(--brand); text-decoration: none; transition: all 0.2s;
+  }
+  .contact-list a:hover {
+    text-decoration: underline; color: var(--text);
+  }
+  .setting-item {
+    display: flex; justify-content: space-between; align-items: center; 
+    padding: 15px; border-bottom: 1px solid var(--ring);
+  }
+  .setting-item:last-child {
+    border-bottom: none;
+  }
+  .toggle-switch {
+    position: relative; display: inline-block; width: 50px; height: 24px;
+  }
+  .toggle-switch input {
+    opacity: 0; width: 0; height: 0;
+  }
+  .slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--ring); transition: .4s; border-radius: 34px;
+  }
+  .slider:before {
+    position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px;
+    background-color: white; transition: .4s; border-radius: 50%;
+  }
+  input:checked + .slider {
+    background-color: var(--brand);
+  }
+  input:checked + .slider:before {
+    transform: translateX(26px);
+  }
+  
+  /* Link Hub Styles */
+  .link-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px; 
+    border-radius: 12px; background: var(--card); margin-bottom: 10px;
+    border: 1px solid var(--ring); transition: all 0.2s;
+  }
+  .link-item:hover {
+    transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  .link-icon {
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    background: var(--bg); border-radius: 10px; font-size: 18px; flex-shrink: 0;
+  }
+  .link-info {flex: 1;}
+  .link-url {
+    font-size: 12px; color: var(--sub); overflow: hidden; 
+    text-overflow: ellipsis; white-space: nowrap; max-width: 200px;
+  }
+  .link-actions {display: flex; gap: 5px;}
+  .drag-handle {
+    cursor: move; color: var(--sub); padding: 5px;
+  }
+  .theme-options {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px;
+  }
+  .theme-option {
+    padding: 15px; border-radius: 12px; text-align: center; cursor: pointer;
+    border: 2px solid var(--ring); transition: all 0.2s;
+  }
+  .theme-option:hover {
+    transform: translateY(-3px);
+  }
+  .theme-option.active {
+    border-color: var(--brand); box-shadow: 0 0 0 3px rgba(34,211,238,.15);
+  }
+  .theme-dark {background: #0b1220; color: #e5e7eb;}
+  .theme-light {background: #f4f6fb; color: #0b1220;}
+  .theme-auto {background: linear-gradient(135deg, #0b1220 50%, #f4f6fb 50%); color: #0b1220;}
+</style>
+</head>
+<body data-theme="dark">
+  <header>
+    <div class="topbar wrap">
+      <div class="brand">
+        <div class="mark"></div>
+        <b>QR Hub</b>
+      </div>
+      <div class="stack">
+        <span class="pill user" id="userBadge">غير مسجل</span>
+        <button class="btn ghost" id="toggleTheme" title="تبديل الوضع">🌙/🌞</button>
+        <button class="btn ghost" id="logoutBtn"><i class="fa fa-right-from-bracket"></i> خروج</button>
+      </div>
+    </div>
+    <nav class="tabs wrap" id="tabs">
+      <button data-page="login" class="active"><i class="fa fa-user"></i> الدخول</button>
+      <button data-page="dashboard"><i class="fa fa-table-columns"></i> الرئيسية</button>
+      <button data-page="qr"><i class="fa fa-qrcode"></i> QR</button>
+      <button data-page="links"><i class="fa fa-link"></i> Link Hub</button>
+      <button data-page="analytics"><i class="fa fa-chart-line"></i> الإحصائيات</button>
+      <button data-page="about"><i class="fa fa-users"></i> من نحن</button>
+      <button data-page="settings"><i class="fa fa-gear"></i> الإعدادات</button>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <!-- LOGIN -->
+    <section class="page card active" id="login">
+      <div class="login-wrap">
+        <h2>تسجيل الدخول</h2>
+        <p class="hint">دخّل أي اسم وباسورد للتجربة. يتم الحفظ محليًا على جهازك.</p>
+        <div class="form-group">
+          <label class="small">اسم المستخدم</label>
+          <input id="l_user" type="text" placeholder="Your name">
+        </div>
+        <div class="form-group">
+          <label class="small">كلمة المرور</label>
+          <input id="l_pass" type="password" placeholder="•••••••">
+        </div>
+        <div class="stack" style="margin-top:10px">
+          <button class="btn primary" id="loginBtn">دخول</button>
+          <button class="btn ghost" id="guestBtn">دخول كضيف</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section class="page card" id="dashboard">
+      <h2>لوحة التحكم</h2>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">👁️ المشاهدات</div>
+          <div class="stat-number" id="st_views_dash">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">🧩 توليد QR</div>
+          <div class="stat-number" id="st_generations_dash">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">⬇️ تنزيلات</div>
+          <div class="stat-number" id="st_downloads_dash">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">📚 حفظ في المكتبة</div>
+          <div class="stat-number" id="st_saves_dash">0</div>
+        </div>
+      </div>
+      
+      <div class="main-layout">
+        <div>
+          <div class="card">
+            <div class="section-title">
+              <i class="fa fa-bolt"></i>
+              <h3>إجراءات سريعة</h3>
+            </div>
+            <div class="quick-actions">
+              <button class="btn primary" data-jump="qr"><i class="fa fa-qrcode"></i> إنشاء QR</button>
+              <button class="btn ghost" data-jump="links"><i class="fa fa-link"></i> Link Hub</button>
+              <button class="btn ghost" data-jump="analytics"><i class="fa fa-chart-line"></i> الإحصائيات</button>
+              <button class="btn ghost" data-jump="settings"><i class="fa fa-gear"></i> الإعدادات</button>
+            </div>
+          </div>
+          
+          <div class="card">
+            <div class="section-title">
+              <i class="fa fa-history"></i>
+              <h3>آخر نشاط</h3>
+            </div>
+            <div class="alert" id="lastActivity">لا يوجد نشاط حتى الآن.</div>
+          </div>
+        </div>
+        
+        <div>
+          <div class="card">
+            <div class="section-title">
+              <i class="fa fa-bookmark"></i>
+              <h3>أحدث QR محفوظ</h3>
+            </div>
+            <div id="recentQrLibrary">
+              <div class="empty-state">
+                <i class="fa fa-qrcode"></i>
+                <p>لا توجد أكواد محفوظة بعد</p>
+                <button class="btn primary" data-jump="qr" style="margin-top: 15px;">إنشاء أول QR</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QR PAGE -->
+    <section class="page card" id="qr">
+      <h2>منشئ QR</h2>
+      
+      <div class="qr-type-selector">
+        <div class="qr-type-btn active" data-type="url">رابط</div>
+        <div class="qr-type-btn" data-type="wifi">شبكة WiFi</div>
+        <div class="qr-type-btn" data-type="contact">جهة اتصال</div>
+      </div>
+      
+      <div class="tab-content active" id="url-fields">
+        <div class="row">
+          <div>
+            <label class="small">النص/الرابط</label>
+            <input id="qrText" type="url" placeholder="https://example.com أو أي نص">
+          </div>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="wifi-fields">
+        <div class="row">
+          <div>
+            <label class="small">اسم الشبكة (SSID)</label>
+            <input id="wifi-ssid" type="text" placeholder="اسم الشبكة">
+          </div>
+          <div>
+            <label class="small">كلمة المرور</label>
+            <input id="wifi-password" type="password" placeholder="كلمة مرور WiFi">
+          </div>
+          <div>
+            <label class="small">نوع التشفير</label>
+            <select id="wifi-encryption">
+              <option value="WPA">WPA/WPA2</option>
+              <option value="WEP">WEP</option>
+              <option value="nopass">لا يوجد</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div class="tab-content" id="contact-fields">
+        <div class="row">
+          <div>
+            <label class="small">الاسم</label>
+            <input id="contact-name" type="text" placeholder="الاسم الكامل">
+          </div>
+          <div>
+            <label class="small">الهاتف</label>
+            <input id="contact-phone" type="text" placeholder="رقم الهاتف">
+          </div>
+          <div>
+            <label class="small">البريد الإلكتروني</label>
+            <input id="contact-email" type="email" placeholder="example@mail.com">
+          </div>
+          <div>
+            <label class="small">العنوان</label>
+            <input id="contact-address" type="text" placeholder="العنوان">
+          </div>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div>
+          <label class="small">حجم الكود</label>
+          <select id="qrSize">
+            <option value="192">192</option>
+            <option value="256" selected>256</option>
+            <option value="384">384</option>
+            <option value="512">512</option>
+          </select>
+        </div>
+        <div>
+          <label class="small">لون النقاط</label>
+          <input id="qrDark" type="color" value="#000000">
+        </div>
+        <div>
+          <label class="small">لون الخلفية</label>
+          <input id="qrLight" type="color" value="#ffffff">
+        </div>
+        <div>
+          <label class="small">مستوى التصحيح (ECC)</label>
+          <select id="qrECC">
+            <option value="L">L</option>
+            <option value="M" selected>M</option>
+            <option value="Q">Q</option>
+            <option value="H">H</option>
+          </select>
+        </div>
+        <div>
+          <label class="small">رفع لوجو داخل الكود (اختياري)</label>
+          <input id="qrLogo" type="file" accept="image/*">
+        </div>
+      </div>
+
+      <div class="stack" style="margin:10px 0">
+        <button class="btn primary" id="genQR">توليد</button>
+        <button class="btn ghost" id="dlPNG">تحميل PNG</button>
+        <button class="btn ghost" id="dlPDF">تحميل PDF</button>
+        <button class="btn ok"    id="saveQR">حفظ في المكتبة</button>
+        <button class="btn ghost" id="shareQR">مشاركة</button>
+        <button class="btn bad"   id="clearQR">مسح</button>
+      </div>
+
+      <div class="center">
+        <div id="loadingIndicator" class="loading" style="display:none; margin: 20px;"></div>
+        <div class="qrbox">
+          <div id="qrcode"></div>
+          <img id="qrLogoOverlay" class="logoOverlay" style="display:none" alt="">
+        </div>
+      </div>
+    </section>
+
+    <!-- LINK HUB PAGE -->
+    <section class="page card" id="links">
+      <h2>Link Hub</h2>
+      <p class="hint">أضف وادار جميع روابطك في مكان واحد وأنشئ QR واحد يوجه إلى صفحة تحتوي على جميع روابطك.</p>
+      
+      <div class="card">
+        <h3>إضافة رابط جديد</h3>
+        <div class="row">
+          <div>
+            <label class="small">عنوان الرابط</label>
+            <input id="linkTitle" type="text" placeholder="مثال: حسابي على إنستجرام">
+          </div>
+          <div>
+            <label class="small">الرابط</label>
+            <input id="linkUrl" type="url" placeholder="https://example.com">
+          </div>
+          <div>
+            <label class="small">أيقونة (اختياري)</label>
+            <select id="linkIcon">
+              <option value="fa-globe">🌐 موقع</option>
+              <option value="fa-instagram">📷 إنستجرام</option>
+              <option value="fa-facebook">📘 فيسبوك</option>
+              <option value="fa-twitter">🐦 تويتر</option>
+              <option value="fa-youtube">📺 يوتيوب</option>
+              <option value="fa-linkedin">💼 لينكد إن</option>
+              <option value="fa-github">💻 جيت هاب</option>
+              <option value="fa-whatsapp">💬 واتساب</option>
+              <option value="fa-envelope">📧 بريد</option>
+              <option value="fa-phone">📞 هاتف</option>
+              <option value="fa-map-marker">📍 موقع</option>
+              <option value="fa-shopping-bag">🛒 متجر</option>
+            </select>
+          </div>
+        </div>
+        <div class="stack" style="margin-top:10px">
+          <button class="btn primary" id="addLinkBtn">إضافة رابط</button>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h3>روابطي</h3>
+        <p class="hint">اسحب الروابط لتغيير ترتيبها. سيظهر هذا الترتيب في صفحة الروابط الخاصة بك.</p>
+        <div id="linksList"></div>
+      </div>
+      
+      <div class="card">
+        <h3>Link Hub QR</h3>
+        <p class="hint">أنشئ QR Code واحد يوجه إلى صفحة تحتوي على جميع روابطك.</p>
+        <div class="stack">
+          <button class="btn primary" id="genLinkHubQR">إنشاء QR للروابط</button>
+          <button class="btn ghost" id="previewLinkHub">معاينة صفحة الروابط</button>
+        </div>
+        <div class="center" id="linkHubQrContainer" style="margin-top:20px; display:none">
+          <div class="qrbox">
+            <div id="linkHubQrCode"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ANALYTICS -->
+    <section class="page card" id="analytics">
+      <h2>لوحة الإحصائيات</h2>
+      <div class="row">
+        <div class="card">
+          <div class="flex">
+            <div>👁️ المشاهدات</div><b id="st_views">0</b>
+          </div>
+          <div class="flex">
+            <div>🧩 توليد QR</div><b id="st_generations">0</b>
+          </div>
+          <div class="flex">
+            <div>⬇️ تنزيلات</div><b id="st_downloads">0</b>
+          </div>
+          <div class="flex">
+            <div>📚 حفظ في المكتبة</div><b id="st_saves">0</b>
+          </div>
+        </div>
+        <div class="card">
+          <canvas id="chart" height="150"></canvas>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h3>📚 مكتبة الـ QR المحفوظة</h3>
+        <div class="grid" id="qrLibrary"></div>
+        <div class="stack" style="margin-top:8px">
+          <button class="btn bad" id="clearLib">مسح المكتبة</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section class="page card" id="about">
+      <h2>من نحن</h2>
+      <div class="alert">
+        <p>
+          إحنا فريق صغير بدأ المشروع ده بشغف وخطوات كتير وتجارب أكتر،
+          هدفنا نسهّل على الناس تنظيم هويتهم الرقمية: كود واحد يوصل لكل روابطك،
+          ومحفظة شخصية تحفظ مستنداتك محليًا، ولوحة إحصائيات تديك رؤية واضحة.
+        </p>
+        <p>
+          تعبنا في التصميم والتجربة علشان نوصل لتجربة بسيطة، سريعة، وشياكة تشبه التطبيقات الكبيرة.
+          كل ده بيشتغل بدون سيرفر — احترامًا لخصوصيتك وسهولة الاستخدام.
+        </p>
+        <p>
+          تقدر تستفيد من الموقع في مشاركة هويتك ولينكاتك، تسهيل الدفع، وتتبع نشاطك — كل ده من جهازك.
+        </p>
+        <h3>طرق التواصل:</h3>
+        <ul class="contact-list">
+          <li>
+            <i class="fas fa-envelope" style="color: #ea4335;"></i>
+            <div>
+              <strong>البريد الإلكتروني</strong><br>
+              <a href="mailto:elm3hdy1@gmail.com">elm3hdy1@gmail.com</a>
+            </div>
+          </li>
+          <li>
+            <i class="fab fa-whatsapp" style="color: #25d366;"></i>
+            <div>
+              <strong>واتساب</strong><br>
+              <a href="https://wa.me/201050822701" target="_blank">+201050822701</a>
+            </div>
+          </li>
+          <li>
+            <i class="fab fa-facebook" style="color: #1877f2;"></i>
+            <div>
+              <strong>فيسبوك</strong><br>
+              <a href="https://www.facebook.com/share/19iJ6sLbhq/" target="_blank">facebook.com/QRHub</a>
+            </div>
+          </li>
+          <li>
+            <i class="fab fa-instagram" style="color: #e4405f;"></i>
+            <div>
+              <strong>إنستجرام</strong><br>
+              <a href="https://instagram.com/elm3hdy_01" target="_blank">instagram.com/elm3hdy_01</a>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="page card" id="settings">
+      <h2>الإعدادات</h2>
+      <div class="row">
+        <div class="card">
+          <h3>المظهر</h3>
+          <div class="theme-options">
+            <div class="theme-option theme-dark active" data-theme="dark">
+              <i class="fas fa-moon"></i>
+              <div>داكن</div>
+            </div>
+            <div class="theme-option theme-light" data-theme="light">
+              <i class="fas fa-sun"></i>
+              <div>فاتح</div>
+            </div>
+            <div class="theme-option theme-auto" data-theme="auto">
+              <i class="fas fa-adjust"></i>
+              <div>تلقائي</div>
+            </div>
+          </div>
+          <p class="hint">يتم حفظ الاختيار تلقائيًا.</p>
+        </div>
+        <div class="card">
+          <h3>البيانات</h3>
+          <div class="stack">
+            <button class="btn bad" id="wipeAll">مسح كل البيانات</button>
+          </div>
+          <p class="hint">يشمل تسجيل الدخول، الإحصائيات، المكتبة، والمحفظة.</p>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h3>إعدادات التطبيق</h3>
+        
+        <div class="setting-item">
+          <div>
+            <strong>النسخ التلقائي للرابط</strong>
+            <p class="hint">نسخ الرابط تلقائيًا عند إنشاء QR</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autoCopy">
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div>
+            <strong>الحفظ التلقائي</strong>
+            <p class="hint">حفظ QR تلقائيًا في المكتبة بعد الإنشاء</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autoSave">
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div>
+            <strong>إشعارات النشاط</strong>
+            <p class="hint">عرض إشعارات عند إكمال المهام</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="showNotifications" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div>
+            <strong>جودة الصور</strong>
+            <p class="hint">جودة صور QR عند التحميل</p>
+          </div>
+          <select id="imageQuality">
+            <option value="high">عالية</option>
+            <option value="medium" selected>متوسطة</option>
+            <option value="low">منخفضة</option>
+          </select>
+        </div>
+        
+        <div class="setting-item">
+          <div>
+            <strong>وضع التركيز</strong>
+            <p class="hint">إخفاء العناصر غير الضرورية لوضع العمل</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="focusMode">
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="setting-item">
+          <div>
+            <strong>الرسوم المتحركة</strong>
+            <p class="hint">تمكين التأثيرات والتحريك في الواجهة</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="animations" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h3>معلومات التطبيق</h3>
+        <div class="setting-item">
+          <strong>الإصدار</strong>
+          <span class="hint">1.3.0</span>
+        </div>
+        <div class="setting-item">
+          <strong>تاريخ التحديث</strong>
+          <span class="hint">يناير 2025</span>
+        </div>
+        <div class="setting-item">
+          <strong>المطور</strong>
+          <span class="hint">Ahmed Elmahdy</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="footer">© 2025 QR Hub — يعمل محليًا بدون سيرفر</div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer"></div>
+
+  <!-- Confirmation Modal -->
+  <div class="modal" id="confirmationModal">
+    <div class="modal-content">
+      <h3 id="modalTitle">تأكيد الإجراء</h3>
+      <p id="modalMessage">هل أنت متأكد من أنك تريد متابعة هذا الإجراء؟</p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="modalCancel">إلغاء</button>
+        <button class="btn primary" id="modalConfirm">تأكيد</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Link Hub Preview Modal -->
+  <div class="modal" id="linkHubPreviewModal">
+    <div class="modal-content" style="max-width: 500px;">
+      <h3>معاينة صفحة الروابط</h3>
+      <div id="linkHubPreview" style="max-height: 400px; overflow-y: auto;">
+        <!-- Preview content will be inserted here -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn primary" id="closePreview">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ==== Helpers & Storage ====
+  const $ = (s, root=document) => root.querySelector(s);
+  const $$ = (s, root=document) => [...root.querySelectorAll(s)];
+  const SKEY = 'qrhub_state_v3';
+  const defaultState = {
+    theme: 'dark',
+    user: null, // {name, passHash, userId}
+    stats: { views: 0, generations: 0, downloads: 0, saves: 0 },
+    lastActivity: '',
+    qrLib: [], // [{id, dataURL, text, createdAt, name}]
+    links: [], // [{id, title, url, icon, order}]
+    settings: {
+      autoCopy: false,
+      autoSave: false,
+      showNotifications: true,
+      imageQuality: 'medium',
+      focusMode: false,
+      animations: true
+    }
+  };
+  let state = loadState();
+
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(SKEY);
+      return raw ? {...defaultState, ...JSON.parse(raw)} : structuredClone(defaultState);
+    }catch{ return structuredClone(defaultState); }
+  }
+  
+  function saveState(){
+    localStorage.setItem(SKEY, JSON.stringify(state));
+    updateBadges();
+    updateDashboard();
+    updateSettingsUI();
+    renderLinksList();
+  }
+  
+  function logActivity(msg){
+    state.lastActivity = `${new Date().toLocaleString()} — ${msg}`;
+    $('#lastActivity').textContent = state.lastActivity || 'لا يوجد نشاط حتى الآن.';
+    saveState();
+  }
+
+  // Toast notifications
+  function showToast(message, type = 'info', duration = 3000) {
+    if (!state.settings.showNotifications) return;
+    
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    let icon = 'fa-info-circle';
+    if (type === 'success') icon = 'fa-check-circle';
+    if (type === 'error') icon = 'fa-exclamation-circle';
+    
+    toast.innerHTML = `<i class="fas ${icon}"></i> ${message}`;
+    $('#toastContainer').appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
+  }
+
+  // Confirmation modal
+  function showConfirmation(title, message) {
+    return new Promise((resolve) => {
+      $('#modalTitle').textContent = title;
+      $('#modalMessage').textContent = message;
+      $('#confirmationModal').classList.add('show');
+      
+      $('#modalCancel').onclick = () => {
+        $('#confirmationModal').classList.remove('show');
+        resolve(false);
+      };
+      
+      $('#modalConfirm').onclick = () => {
+        $('#confirmationModal').classList.remove('show');
+        resolve(true);
+      };
+    });
+  }
+
+  // Theme
+  function applyTheme(t){ 
+    if (t === 'auto') {
+      // Check system preference
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    } else {
+      document.body.setAttribute('data-theme', t);
+    }
+    state.theme = t; 
+    saveState(); 
+  }
+  
+  $('#toggleTheme').addEventListener('click', ()=> {
+    const currentTheme = state.theme;
+    if (currentTheme === 'dark') applyTheme('light');
+    else if (currentTheme === 'light') applyTheme('auto');
+    else applyTheme('dark');
+  });
+  
+  $$('#settings [data-theme]').forEach(b => b.addEventListener('click', ()=> applyTheme(b.dataset.theme)));
+  $$('.theme-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      $$('.theme-option').forEach(o => o.classList.remove('active'));
+      opt.classList.add('active');
+      applyTheme(opt.dataset.theme);
+    });
+  });
+
+  // Tabs & Auth
+  const tabs = $('#tabs');
+  tabs.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button'); if(!btn) return;
+    const page = btn.dataset.page;
+    if(!page) return;
+    if(!state.user && page!=='login'){ showToast('سجل الدخول أولًا', 'error'); return; }
+    openPage(page);
+  });
+  
+  function openPage(id){
+    $$('#tabs button').forEach(b=> b.classList.toggle('active', b.dataset.page===id));
+    $$('.page').forEach(p=> p.classList.toggle('active', p.id===id));
+    if(id==='analytics') renderStats();
+    if(id==='dashboard') updateDashboard();
+    if(id==='settings') updateSettingsUI();
+    if(id==='links') renderLinksList();
+  }
+
+  function updateBadges(){
+    $('#userBadge').textContent = state.user ? `مرحبًا، ${state.user.name}` : 'غير مسجل';
+    $('#st_views').textContent = state.stats.views;
+    $('#st_generations').textContent = state.stats.generations;
+    $('#st_downloads').textContent = state.stats.downloads;
+    $('#st_saves').textContent = state.stats.saves;
+    $('#lastActivity').textContent = state.lastActivity || 'لا يوجد نشاط حتى الآن.';
+  }
+
+  function updateDashboard() {
+    $('#st_views_dash').textContent = state.stats.views;
+    $('#st_generations_dash').textContent = state.stats.generations;
+    $('#st_downloads_dash').textContent = state.stats.downloads;
+    $('#st_saves_dash').textContent = state.stats.saves;
+    $('#lastActivity').textContent = state.lastActivity || 'لا يوجد نشاط حتى الآن.';
+    
+    renderRecentLibrary();
+  }
+
+  function updateSettingsUI() {
+    $('#autoCopy').checked = state.settings.autoCopy;
+    $('#autoSave').checked = state.settings.autoSave;
+    $('#showNotifications').checked = state.settings.showNotifications;
+    $('#imageQuality').value = state.settings.imageQuality;
+    $('#focusMode').checked = state.settings.focusMode;
+    $('#animations').checked = state.settings.animations;
+    
+    // Update theme options active state
+    $$('.theme-option').forEach(opt => {
+      opt.classList.toggle('active', opt.dataset.theme === state.theme);
+    });
+  }
+
+  // Login
+  $('#loginBtn').addEventListener('click', ()=>{
+    const name = $('#l_user').value.trim();
+    const pass = $('#l_pass').value.trim();
+    if(!name || !pass) return showToast('أدخل الاسم وكلمة المرور', 'error');
+    
+    // Hash password for basic security and create user ID
+    const passHash = sha256(pass);
+    const userId = sha256(name + Date.now()); // Unique ID for each user
+    
+    // Check if this is a new user
+    state.user = {name, passHash, userId}; 
+    saveState();
+    logActivity('تسجيل دخول');
+    showToast(`مرحبًا ${name}!`, 'success');
+    
+    // Hide login page and show dashboard
+    $('#login').classList.remove('active');
+    openPage('dashboard');
+  });
+  
+  $('#guestBtn').addEventListener('click', ()=>{
+    const guestId = 'guest_' + Date.now();
+    state.user = {name:'ضيف', passHash: '', userId: guestId}; 
+    saveState();
+    logActivity('دخول كضيف');
+    showToast('دخلت كضيف', 'info');
+    
+    // Hide login page and show dashboard
+    $('#login').classList.remove('active');
+    openPage('dashboard');
+  });
+  
+  $('#logoutBtn').addEventListener('click', async ()=>{
+    const confirmed = await showConfirmation('تأكيد الخروج', 'هل أنت متأكد من أنك تريد تسجيل الخروج؟');
+    if (confirmed) {
+      state.user = null; 
+      saveState(); 
+      
+      // Show login page and hide others
+      openPage('login');
+      showToast('تم تسجيل الخروج', 'info');
+    }
+  });
+
+  // Increase views on first load of session
+  (function incViewsOnce(){
+    const k='qrhub_viewed';
+    if(!sessionStorage.getItem(k)){ state.stats.views++; sessionStorage.setItem(k,'1'); saveState(); }
+  })();
+
+  // Jump buttons from dashboard
+  $$('#dashboard [data-jump]').forEach(b=> b.addEventListener('click', ()=> openPage(b.dataset.jump)));
+
+  // Apply saved theme and user
+  applyTheme(state.theme);
+  updateBadges();
+  if(state.user){ 
+    $('#login').classList.remove('active');
+    openPage('dashboard'); 
+  } else { 
+    openPage('login'); 
+  }
+
+  // QR Type Selector
+  $$('.qr-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Update active button
+      $$('.qr-type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      // Show relevant fields
+      $$('.tab-content').forEach(tab => tab.classList.remove('active'));
+      $(`#${btn.dataset.type}-fields`).classList.add('active');
+    });
+  });
+
+  // ==== QR Builder ====
+  let qrcode = null;
+  let logoDataURL = null;
+
+  $('#qrLogo').addEventListener('change', async (e)=>{
+    const f = e.target.files[0]; if(!f) return;
+    const url = await fileToDataURL(f); logoDataURL = url;
+    const img = $('#qrLogoOverlay'); img.src = url; img.style.display = 'block';
+  });
+
+  $('#genQR').addEventListener('click', async ()=>{
+    const type = $('.qr-type-btn.active').dataset.type;
+    let text = '';
+    
+    // Validate and prepare text based on type
+    if (type === 'url') {
+      text = $('#qrText').value.trim();
+      if(!text) return showToast('اكتب نصًا أو رابطًا أولًا', 'error');
+      if (!text.startsWith('http')) text = 'https://' + text;
+    } 
+    else if (type === 'wifi') {
+      const ssid = $('#wifi-ssid').value.trim();
+      const password = $('#wifi-password').value.trim();
+      const encryption = $('#wifi-encryption').value;
+      
+      if (!ssid) return showToast('أدخل اسم الشبكة', 'error');
+      text = `WIFI:S:${ssid};T:${encryption};P:${password};;`;
+    }
+    else if (type === 'contact') {
+      const name = $('#contact-name').value.trim();
+      const phone = $('#contact-phone').value.trim();
+      const email = $('#contact-email').value.trim();
+      const address = $('#contact-address').value.trim();
+      
+      if (!name && !phone && !email) return showToast('أدخل معلومات التواصل على الأقل', 'error');
+      
+      let vcard = 'BEGIN:VCARD\nVERSION:3.0\n';
+      if (name) vcard += `FN:${name}\n`;
+      if (phone) vcard += `TEL:${phone}\n`;
+      if (email) vcard += `EMAIL:${email}\n`;
+      if (address) vcard += `ADR:;;${address};;;\n`;
+      vcard += 'END:VCARD';
+      
+      text = vcard;
+    }
+    
+    const size = +$('#qrSize').value;
+    const dark = $('#qrDark').value; const light = $('#qrLight').value;
+    const ecc = {L:QRCode.CorrectLevel.L, M:QRCode.CorrectLevel.M, Q:QRCode.CorrectLevel.Q, H:QRCode.CorrectLevel.H}[$('#qrECC').value] || QRCode.CorrectLevel.M;
+
+    // Show loading
+    $('#loadingIndicator').style.display = 'block';
+    
+    // Small delay to allow UI to update
+    await new Promise(resolve => setTimeout(resolve, 10));
+    
+    $('#qrcode').innerHTML = '';
+    qrcode = new QRCode($('#qrcode'), { text, width:size, height:size, colorDark:dark, colorLight:light, correctLevel:ecc });
+
+    // Small delay for canvas render
+    setTimeout(()=>{ 
+      if(logoDataURL) $('#qrLogoOverlay').style.display='block'; 
+      $('#loadingIndicator').style.display = 'none';
+      
+      // Auto-copy if enabled
+      if (state.settings.autoCopy && type === 'url') {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('تم نسخ الرابط إلى الحافظة', 'success');
+        });
+      }
+      
+      // Auto-save if enabled
+      if (state.settings.autoSave) {
+        setTimeout(() => {
+          $('#saveQR').click();
+        }, 500);
+      }
+    }, 200);
+
+    state.stats.generations++; saveState();
+    logActivity('توليد QR');
+    showToast('تم إنشاء QR بنجاح', 'success');
+  });
+
+  $('#clearQR').addEventListener('click', ()=>{
+    $('#qrcode').innerHTML = ''; 
+    $('#qrLogoOverlay').style.display='none'; 
+    logoDataURL=null; 
+    $('#qrLogo').value='';
+    showToast('تم مسح الـ QR', 'info');
+  });
+
+  $('#dlPNG').addEventListener('click', async ()=>{
+    const canvas = await mergedCanvas();
+    if(!canvas) return showToast('اعمِل QR الأول', 'error');
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download='qrcode.png'; a.click();
+    state.stats.downloads++; saveState(); logActivity('تحميل PNG');
+    showToast('تم تحميل الصورة', 'success');
+  });
+
+  $('#dlPDF').addEventListener('click', async ()=>{
+    const canvas = await mergedCanvas();
+    if(!canvas) return showToast('اعمِل QR الأول', 'error');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF();
+    pdf.text('QR Hub', 10, 10);
+    const w = 160, h = 160;
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 20, 20, w, h);
+    pdf.save('qrcode.pdf');
+    state.stats.downloads++; saveState(); logActivity('تحميل PDF');
+    showToast('تم تحميل PDF', 'success');
+  });
+
+  $('#shareQR').addEventListener('click', async ()=>{
+    const canvas = await mergedCanvas();
+    if(!canvas) return showToast('اعمِل QR الأول', 'error');
+    if(navigator.canShare && canvas.toBlob){
+      canvas.toBlob(async blob=>{
+        const file = new File([blob], 'qrcode.png', {type:'image/png'});
+        try{
+          await navigator.share({ files:[file], title:'QR Hub', text:'كود QR الخاص بي' });
+          showToast('تمت المشاركة بنجاح', 'success');
+        }catch(e){
+          showToast('تم إلغاء المشاركة', 'info');
+        }
+      });
+    }else{
+      showToast('المتصفح لا يدعم Web Share للملفات — استخدم تحميل PNG بدلًا من ذلك.', 'error');
+    }
+  });
+
+  $('#saveQR').addEventListener('click', async ()=>{
+    const canvas = await mergedCanvas();
+    if(!canvas) return showToast('اعمِل QR الأول', 'error');
+    
+    // Ask for a name for the QR code
+    const qrName = prompt('أدخل اسمًا للـ QR (اختياري):', '');
+    const text = $('#qrText').value.trim();
+    const dataURL = canvas.toDataURL('image/png');
+    
+    state.qrLib.unshift({ 
+      id: Date.now(), 
+      dataURL, 
+      text, 
+      name: qrName || text.substring(0, 20) + (text.length > 20 ? '...' : ''),
+      createdAt: new Date().toISOString() 
+    });
+    
+    state.stats.saves++; saveState(); 
+    renderLibrary();
+    renderRecentLibrary();
+    logActivity('حفظ QR في المكتبة');
+    showToast('تم حفظ QR في المكتبة', 'success');
+  });
+
+  $('#clearLib').addEventListener('click', async ()=>{
+    if(!state.qrLib.length) return showToast('المكتبة فارغة بالفعل', 'info');
+    
+    const confirmed = await showConfirmation('مسح المكتبة', 'هل أنت متأكد من أنك تريد مسح كل المكتبة؟ لا يمكن التراجع عن هذا الإجراء.');
+    if(confirmed){ 
+      state.qrLib = []; 
+      saveState(); 
+      renderLibrary(); 
+      renderRecentLibrary();
+      showToast('تم مسح المكتبة', 'success');
+    }
+  });
+
+  function renderLibrary(){
+    const host = $('#qrLibrary'); host.innerHTML='';
+    if(!state.qrLib.length){ host.innerHTML = '<div class="empty-state"><i class="fa fa-qrcode"></i><p>لا توجد أكواد محفوظة بعد</p></div>'; return; }
+    state.qrLib.forEach(item=>{
+      const card = document.createElement('div'); card.className='thumb';
+      card.innerHTML = `
+        <img src="${item.dataURL}" alt="QR">
+        <div class="flex" style="margin-top:8px">
+          <small class="hint" title="${item.text || ''}">${item.name || (item.text || 'بدون عنوان').slice(0,24)}</small>
+          <div class="stack">
+            <button class="btn ghost" data-dl="${item.id}">تنزيل</button>
+            <button class="btn ghost" data-edit="${item.id}">تعديل</button>
+            <button class="btn bad" data-del="${item.id}">حذف</button>
+          </div>
+        </div>`;
+      host.appendChild(card);
+    });
+  }
+  
+  function renderRecentLibrary() {
+    const host = $('#recentQrLibrary'); 
+    if(!state.qrLib.length){ 
+      host.innerHTML = '<div class="empty-state"><i class="fa fa-qrcode"></i><p>لا توجد أكواد محفوظة بعد</p><button class="btn primary" data-jump="qr" style="margin-top: 15px;">إنشاء أول QR</button></div>'; 
+      return; 
+    }
+    
+    host.innerHTML = '';
+    // Show only the first 3 items
+    const recentItems = state.qrLib.slice(0, 3);
+    
+    recentItems.forEach(item => {
+      const libItem = document.createElement('div');
+      libItem.className = 'lib-item';
+      libItem.innerHTML = `
+        <img src="${item.dataURL}" alt="QR">
+        <div class="lib-info">
+          <div>${item.name || (item.text || 'بدون عنوان').substring(0, 20) + (item.text.length > 20 ? '...' : '')}</div>
+          <small class="hint">${new Date(item.createdAt).toLocaleDateString()}</small>
+        </div>
+        <div class="lib-actions">
+          <button class="btn ghost" data-dl="${item.id}"><i class="fa fa-download"></i></button>
+          <button class="btn bad" data-del="${item.id}"><i class="fa fa-trash"></i></button>
+        </div>
+      `;
+      host.appendChild(libItem);
+    });
+    
+    if (state.qrLib.length > 3) {
+      const viewAll = document.createElement('div');
+      viewAll.style.textAlign = 'center';
+      viewAll.style.marginTop = '15px';
+      viewAll.innerHTML = `<button class="btn ghost" data-jump="analytics">عرض الكل (${state.qrLib.length})</button>`;
+      host.appendChild(viewAll);
+    }
+  }
+  
+  $('#qrLibrary').addEventListener('click', async (e)=>{
+    const dl = e.target.closest('[data-dl]'); 
+    const edit = e.target.closest('[data-edit]');
+    const del = e.target.closest('[data-del]');
+    
+    if(dl){
+      const it = state.qrLib.find(x=> x.id == dl.dataset.dl);
+      if(it){ 
+        const a=document.createElement('a'); 
+        a.href=it.dataURL; 
+        a.download='qrcode.png'; 
+        a.click(); 
+        state.stats.downloads++; 
+        saveState(); 
+        showToast('تم التنزيل', 'success');
+      }
+    }
+    
+    if(edit){
+      const it = state.qrLib.find(x=> x.id == edit.dataset.dl);
+      if(it){
+        const newName = prompt('أدخل الاسم الجديد:', it.name || '');
+        if (newName !== null) {
+          it.name = newName;
+          saveState();
+          renderLibrary();
+          renderRecentLibrary();
+          showToast('تم التعديل', 'success');
+        }
+      }
+    }
+    
+    if(del){
+      const confirmed = await showConfirmation('حذف QR', 'هل أنت متأكد من أنك تريد حذف هذا الـ QR؟');
+      if(confirmed){
+        state.qrLib = state.qrLib.filter(x=> x.id != del.dataset.del); 
+        saveState(); 
+        renderLibrary();
+        renderRecentLibrary();
+        showToast('تم الحذف', 'success');
+      }
+    }
+  });
+  
+  // Handle clicks in the recent library
+  $('#recentQrLibrary').addEventListener('click', async (e)=>{
+    const dl = e.target.closest('[data-dl]'); 
+    const del = e.target.closest('[data-del]');
+    const jump = e.target.closest('[data-jump]');
+    
+    if(dl){
+      const it = state.qrLib.find(x=> x.id == dl.dataset.dl);
+      if(it){ 
+        const a=document.createElement('a'); 
+        a.href=it.dataURL; 
+        a.download='qrcode.png'; 
+        a.click(); 
+        state.stats.downloads++; 
+        saveState(); 
+        showToast('تم التنزيل', 'success');
+      }
+    }
+    
+    if(del){
+      const confirmed = await showConfirmation('حذف QR', 'هل أنت متأكد من أنك تريد حذف هذا الـ QR؟');
+      if(confirmed){
+        state.qrLib = state.qrLib.filter(x=> x.id != del.dataset.del); 
+        saveState(); 
+        renderLibrary();
+        renderRecentLibrary();
+        showToast('تم الحذف', 'success');
+      }
+    }
+    
+    if(jump){
+      openPage(jump.dataset.jump);
+    }
+  });
+
+  async function mergedCanvas(){
+    const baseCanvas = $('#qrcode canvas');
+    if(!baseCanvas) return null;
+    // if no logo, return the base directly
+    if(!logoDataURL){ return baseCanvas; }
+    // draw onto offscreen
+    const off = document.createElement('canvas');
+    off.width = baseCanvas.width; off.height = baseCanvas.height;
+    const ctx = off.getContext('2d');
+    ctx.drawImage(baseCanvas, 0, 0);
+    // draw logo
+    const img = await loadImage(logoDataURL);
+    const lw = Math.floor(off.width * 0.22);
+    const x = Math.floor((off.width - lw)/2), y = Math.floor((off.height - lw)/2);
+    // white circle behind
+    ctx.save();
+    ctx.beginPath(); ctx.arc(off.width/2, off.height/2, lw/2+3, 0, Math.PI*2); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.closePath(); ctx.restore();
+    ctx.drawImage(img, x, y, lw, lw);
+    return off;
+  }
+
+  function loadImage(src){
+    return new Promise((res, rej)=>{ const i = new Image(); i.onload=()=>res(i); i.onerror=rej; i.src = src; });
+  }
+  function fileToDataURL(file){ return new Promise(res=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.readAsDataURL(file); }); }
+
+  renderLibrary();
+  renderRecentLibrary();
+
+  // ==== Link Hub Functionality ====
+  function renderLinksList() {
+    const container = $('#linksList');
+    container.innerHTML = '';
+    
+    if (state.links.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <i class="fa fa-link"></i>
+          <p>لا توجد روابط بعد</p>
+          <p class="hint">أضف روابطك الأولى باستخدام النموذج أعلاه</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Sort links by order
+    const sortedLinks = [...state.links].sort((a, b) => a.order - b.order);
+    
+    sortedLinks.forEach(link => {
+      const linkItem = document.createElement('div');
+      linkItem.className = 'link-item';
+      linkItem.dataset.id = link.id;
+      linkItem.innerHTML = `
+        <div class="drag-handle"><i class="fas fa-grip-vertical"></i></div>
+        <div class="link-icon"><i class="fas ${link.icon || 'fa-globe'}"></i></div>
+        <div class="link-info">
+          <div>${link.title}</div>
+          <div class="link-url">${link.url}</div>
+        </div>
+        <div class="link-actions">
+          <button class="btn ghost" data-link-edit="${link.id}"><i class="fa fa-edit"></i></button>
+          <button class="btn bad" data-link-delete="${link.id}"><i class="fa fa-trash"></i></button>
+        </div>
+      `;
+      container.appendChild(linkItem);
+    });
+    
+    // Make links draggable for reordering
+    initDragAndDrop();
+  }
+  
+  function initDragAndDrop() {
+    const container = $('#linksList');
+    let draggedItem = null;
+    
+    $$('.link-item').forEach(item => {
+      // Drag start
+      item.addEventListener('dragstart', (e) => {
+        draggedItem = item;
+        setTimeout(() => item.style.opacity = '0.5', 0);
+      });
+      
+      // Drag end
+      item.addEventListener('dragend', () => {
+        $$('.link-item').forEach(i => i.style.opacity = '1');
+        draggedItem = null;
+      });
+      
+      // Drag over
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+      
+      // Drag enter
+      item.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        item.style.backgroundColor = 'var(--ring)';
+      });
+      
+      // Drag leave
+      item.addEventListener('dragleave', () => {
+        item.style.backgroundColor = '';
+      });
+      
+      // Drop
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        item.style.backgroundColor = '';
+        
+        if (draggedItem !== item) {
+          // Reorder items
+          const items = [...container.children];
+          const fromIndex = items.indexOf(draggedItem);
+          const toIndex = items.indexOf(item);
+          
+          if (fromIndex < toIndex) {
+            container.insertBefore(draggedItem, item.nextSibling);
+          } else {
+            container.insertBefore(draggedItem, item);
+          }
+          
+          // Update order in state
+          const newOrder = [...container.children].map((child, index) => {
+            const id = parseInt(child.dataset.id);
+            const link = state.links.find(l => l.id === id);
+            link.order = index;
+            return link;
+          });
+          
+          state.links = newOrder;
+          saveState();
+          showToast('تم تحديث ترتيب الروابط', 'success');
+        }
+      });
+    });
+  }
+  
+  // Add new link
+  $('#addLinkBtn').addEventListener('click', () => {
+    const title = $('#linkTitle').value.trim();
+    const url = $('#linkUrl').value.trim();
+    const icon = $('#linkIcon').value;
+    
+    if (!title || !url) {
+      showToast('أدخل عنوانًا ورابطًا صالحًا', 'error');
+      return;
+    }
+    
+    // Validate URL
+    let validUrl = url;
+    if (!url.startsWith('http')) {
+      validUrl = 'https://' + url;
+    }
+    
+    const newLink = {
+      id: Date.now(),
+      title,
+      url: validUrl,
+      icon,
+      order: state.links.length
+    };
+    
+    state.links.push(newLink);
+    saveState();
+    renderLinksList();
+    
+    // Clear form
+    $('#linkTitle').value = '';
+    $('#linkUrl').value = '';
+    $('#linkIcon').value = 'fa-globe';
+    
+    showToast('تم إضافة الرابط بنجاح', 'success');
+    logActivity('إضافة رابط جديد: ' + title);
+  });
+  
+  // Handle link actions (edit and delete)
+  $('#linksList').addEventListener('click', (e) => {
+    const editBtn = e.target.closest('[data-link-edit]');
+    const deleteBtn = e.target.closest('[data-link-delete]');
+    
+    if (editBtn) {
+      const linkId = parseInt(editBtn.dataset.linkEdit);
+      const link = state.links.find(l => l.id === linkId);
+      
+      if (link) {
+        const newTitle = prompt('عدل عنوان الرابط:', link.title);
+        if (newTitle !== null) {
+          const newUrl = prompt('عدل الرابط:', link.url);
+          if (newUrl !== null) {
+            link.title = newTitle.trim();
+            link.url = newUrl.trim();
+            saveState();
+            renderLinksList();
+            showToast('تم تعديل الرابط', 'success');
+          }
+        }
+      }
+    }
+    
+    if (deleteBtn) {
+      const linkId = parseInt(deleteBtn.dataset.linkDelete);
+      const link = state.links.find(l => l.id === linkId);
+      
+      if (link) {
+        const confirmed = confirm(`هل أنت متأكد من حذف الرابط "${link.title}"؟`);
+        if (confirmed) {
+          state.links = state.links.filter(l => l.id !== linkId);
+          saveState();
+          renderLinksList();
+          showToast('تم حذف الرابط', 'success');
+        }
+      }
+    }
+  });
+  
+  // Generate Link Hub QR
+  $('#genLinkHubQR').addEventListener('click', () => {
+    if (state.links.length === 0) {
+      showToast('أضف روابط أولاً قبل إنشاء QR', 'error');
+      return;
+    }
+    
+    // Create a simple HTML page with all links
+    const linksHtml = state.links.map(link => `
+      <div style="margin: 15px 0; padding: 15px; background: #f5f5f5; border-radius: 10px;">
+        <a href="${link.url}" target="_blank" style="text-decoration: none; color: #333;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 24px;"><i class="fas ${link.icon || 'fa-globe'}"></i></div>
+            <div>
+              <div style="font-weight: bold;">${link.title}</div>
+              <div style="font-size: 12px; color: #666;">${link.url}</div>
+            </div>
+          </div>
+        </a>
+      </div>
+    `).join('');
+    
+    const htmlPage = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>روابط ${state.user.name}</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+        <style>
+          body { font-family: 'Cairo', sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; text-align: center; }
+          h1 { color: #333; }
+        </style>
+      </head>
+      <body>
+        <h1>روابط ${state.user.name}</h1>
+        ${linksHtml}
+        <p style="margin-top: 30px; color: #999; font-size: 12px;">تم إنشاء هذه الصفحة باستخدام QR Hub</p>
+      </body>
+      </html>
+    `;
+    
+    // Convert to data URL
+    const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(htmlPage)}`;
+    
+    // Generate QR code
+    $('#linkHubQrCode').innerHTML = '';
+    new QRCode($('#linkHubQrCode'), { 
+      text: dataUrl, 
+      width: 256, 
+      height: 256,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    
+    $('#linkHubQrContainer').style.display = 'block';
+    showToast('تم إنشاء QR للروابط', 'success');
+    logActivity('إنشاء QR لصفحة الروابط');
+  });
+  
+  // Preview Link Hub page
+  $('#previewLinkHub').addEventListener('click', () => {
+    if (state.links.length === 0) {
+      showToast('أضف روابط أولاً للمعاينة', 'error');
+      return;
+    }
+    
+    const preview = $('#linkHubPreview');
+    preview.innerHTML = '';
+    
+    // Create preview content
+    const previewContent = document.createElement('div');
+    previewContent.innerHTML = `
+      <h3 style="text-align: center; margin-bottom: 20px;">معاينة صفحة الروابط</h3>
+      <div style="max-height: 300px; overflow-y: auto;">
+        ${state.links.map(link => `
+          <div style="margin: 10px 0; padding: 12px; background: var(--card); border-radius: 8px; border: 1px solid var(--ring);">
+            <a href="${link.url}" target="_blank" style="text-decoration: none; color: var(--text); display: flex; align-items: center; gap: 10px;">
+              <div style="font-size: 20px; width: 30px;"><i class="fas ${link.icon || 'fa-globe'}"></i></div>
+              <div style="flex: 1;">
+                <div style="font-weight: bold;">${link.title}</div>
+                <div style="font-size: 12px; color: var(--sub);">${link.url}</div>
+              </div>
+            </a>
+          </div>
+        `).join('')}
+      </div>
+      <p style="text-align: center; margin-top: 15px; color: var(--sub); font-size: 12px;">
+        سيتم فتح الروابط في نافذة جديدة عند النقر عليها
+      </p>
+    `;
+    
+    preview.appendChild(previewContent);
+    $('#linkHubPreviewModal').classList.add('show');
+  });
+  
+  // Close preview modal
+  $('#closePreview').addEventListener('click', () => {
+    $('#linkHubPreviewModal').classList.remove('show');
+  });
+
+  // ==== Settings Event Listeners ====
+  $('#autoCopy').addEventListener('change', ()=>{
+    state.settings.autoCopy = $('#autoCopy').checked;
+    saveState();
+    showToast('تم حفظ الإعدادات', 'success');
+  });
+  
+  $('#autoSave').addEventListener('change', ()=>{
+    state.settings.autoSave = $('#autoSave').checked;
+    saveState();
+    showToast('تم حفظ الإعدادات', 'success');
+  });
+  
+  $('#showNotifications').addEventListener('change', ()=>{
+    state.settings.showNotifications = $('#showNotifications').checked;
+    saveState();
+    showToast('تم حفظ الإعدادات', 'success');
+  });
+  
+  $('#imageQuality').addEventListener('change', ()=>{
+    state.settings.imageQuality = $('#imageQuality').value;
+    saveState();
+    showToast('تم حفظ الإعدادات', 'success');
+  });
+  
+  $('#focusMode').addEventListener('change', ()=>{
+    state.settings.focusMode = $('#focusMode').checked;
+    saveState();
+    showToast('تم حفظ الإعدادات', 'success');
+  });
+  
+  $('#animations').addEventListener('change', ()=>{
+    state.settings.animations = $('#animations').checked;
+    saveState();
+    showToast('تم حفظ الإعدادات', 'success');
+  });
+
+  // ==== Analytics ====
+  let chart;
+  function renderStats(){
+    // Update numbers
+    updateBadges();
+    // Chart
+    const ctx = $('#chart');
+    const data = {
+      labels: ['مشاهدات','توليد QR','تنزيلات','حفظ للمكتبة'],
+      datasets: [{ 
+        label: 'ملخص', 
+        data: [state.stats.views, state.stats.generations, state.stats.downloads, state.stats.saves],
+        backgroundColor: [
+          'rgba(34, 211, 238, 0.7)',
+          'rgba(245, 158, 11, 0.7)',
+          'rgba(34, 197, 94, 0.7)',
+          'rgba(239, 68, 68, 0.7)'
+        ]
+      }]
+    };
+    if(chart){ chart.destroy(); }
+    chart = new Chart(ctx, { 
+      type:'bar', 
+      data, 
+      options:{ 
+        responsive:true, 
+        plugins:{ legend:{display:false} },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              precision: 0
+            }
+          }
+        }
+      } 
+    });
+    
+    renderLibrary();
+  }
+
+  // ==== Settings ====
+  $('#wipeAll').addEventListener('click', async ()=>{
+    const confirmed = await showConfirmation('مسح كل البيانات', 'هل أنت متأكد من أنك تريد مسح كل بيانات QR Hub على هذا المتصفح؟ لا يمكن التراجع عن هذا الإجراء.');
+    if(confirmed){
+      localStorage.removeItem(SKEY);
+      sessionStorage.clear();
+      state = structuredClone(defaultState);
+      applyTheme('dark'); updateBadges(); renderLibrary(); renderRecentLibrary(); renderLinksList();
+      openPage('login');
+      showToast('تم مسح كل البيانات ✅', 'success');
+    }
+  });
+
+  // Restore theme on boot
+  applyTheme(state.theme);
+  // Restore library grid
+  renderLibrary();
+  renderRecentLibrary();
+  renderLinksList();
+</script>
+</body>
+</html>
